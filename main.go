@@ -27,8 +27,6 @@ var PageAfterLastFetchError = errors.New("fetching page after last one")
 
 func Fetch(url, username, password string) FetchResult {
 
-	//fmt.Printf("fetching %s\n", url)
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		panic(err)
@@ -85,7 +83,7 @@ func (s *SyncChanSlice[T]) Append(newChan chan T) {
 	s.Lock()
 	s.chSlice = append(s.chSlice, newChan)
 	s.Unlock()
-	s.cond.Signal()
+	s.cond.Broadcast()
 }
 
 func (s *SyncChanSlice[T]) Len() int {
