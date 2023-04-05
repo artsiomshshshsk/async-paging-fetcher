@@ -46,6 +46,10 @@ func Fetch(url, username, password string) FetchResult {
 			return FetchResult{nil, PageAfterLastFetchError}
 		}
 
+		if resp.StatusCode == http.StatusUnauthorized {
+			panic("Unauthorized request!!!")
+		}
+
 		if resp.StatusCode == http.StatusGatewayTimeout {
 			time.Sleep(time.Second)
 			// to many requests
@@ -180,7 +184,7 @@ func TotalUnique(urlPattern string, username string, password string) int {
 }
 
 func main() {
-
+	startTime := time.Now()
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -192,4 +196,5 @@ func main() {
 
 	total := TotalUnique(urlPattern, username, password)
 	fmt.Printf("totalUnique:%d\n", total)
+	fmt.Printf("time spent: %d ms\n", time.Now().Sub(startTime).Milliseconds())
 }
