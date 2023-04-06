@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fetcher/util"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -23,10 +23,14 @@ type FetchResult struct {
 	err  error
 }
 
+type Future struct {
+	FetchResult chan FetchResult
+}
+
+
 var PageAfterLastFetchError = errors.New("fetching page after last one")
 
 func Fetch(url, username, password string) FetchResult {
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		panic(err)
@@ -67,59 +71,24 @@ func Fetch(url, username, password string) FetchResult {
 	}
 }
 
-func NewSyncChainSlice() *SyncChanSlice[FetchResult] {
-	s := SyncChanSlice[FetchResult]{}
-	s.cond = sync.NewCond(&s)
-	return &s
-}
 
-type SyncChanSlice[T any] struct {
-	sync.Mutex
-	chSlice []chan T
-	cond    *sync.Cond
-}
-
-func (s *SyncChanSlice[T]) Append(newChan chan T) {
-	s.Lock()
-	s.chSlice = append(s.chSlice, newChan)
-	s.Unlock()
-	s.cond.Broadcast()
-}
-
-func (s *SyncChanSlice[T]) Len() int {
-	s.Lock()
-	defer s.Unlock()
-	return len(s.chSlice)
-}
-
-func (s *SyncChanSlice[T]) Get(pos int) chan T {
-	s.Lock()
-	defer s.Unlock()
-	for pos >= len(s.chSlice) {
-		s.cond.Wait()
-	}
-	return s.chSlice[pos]
-}
-
-func SpawnFetchers(urlPattern, username, password string, cancel chan struct{}, slice *SyncChanSlice[FetchResult]) {
+func SpawnFetchers(urlPattern, username, password string, cancel chan struct{}, syncChan chan Future) {
 	concurrencySemaphore := make(chan struct{}, maxConcurrency)
 	pageId := 1
 	for {
 		select {
 		case <-cancel:
+			close(syncChan)
 			return
 		case concurrencySemaphore <- struct{}{}:
 			{
 				url := fmt.Sprintf(urlPattern, pageId)
-				newFuture := func() chan FetchResult {
-					future := make(chan FetchResult)
-					go func() {
-						future <- Fetch(url, username, password)
-						<-concurrencySemaphore
-					}()
-					return future
+				future := make(chan FetchResult)
+				go func() {
+					future <- Fetch(url, username, password)
+					<-concurrencySemaphore
 				}()
-				slice.Append(newFuture)
+				syncChan <- Future{future}
 			}
 		}
 		pageId++
@@ -127,28 +96,20 @@ func SpawnFetchers(urlPattern, username, password string, cancel chan struct{}, 
 }
 
 func AsyncFetch(urlPattern, username, password string, callback func([]byte)) {
-	syncSlice := NewSyncChainSlice()
+	syncChan := make(chan Future, maxConcurrency)
 	cancel := make(chan struct{}, maxConcurrency)
-	go SpawnFetchers(urlPattern, username, password, cancel, syncSlice)
-	spawningStopped := false
-	i := 0
-	for {
-		if spawningStopped && i >= syncSlice.Len() {
-			break
-		}
-		curFuture := syncSlice.Get(i)
-		curResult := <-curFuture
+	go SpawnFetchers(urlPattern, username, password, cancel, syncChan)
 
+	for future := range syncChan{
+		curResult := <- future.FetchResult
 		if curResult.err != nil {
 			if errors.Is(curResult.err, PageAfterLastFetchError) {
 				cancel <- struct{}{}
-				spawningStopped = true
 			} else {
 				panic(curResult.err)
 			}
 		}
 		callback(curResult.data)
-		i++
 	}
 }
 
@@ -187,7 +148,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-
 	urlPattern := os.Getenv("URL_PATTERN")
 	username := os.Getenv("USERNAME")
 	password := os.Getenv("PASSWORD")
