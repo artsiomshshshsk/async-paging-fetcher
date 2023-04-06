@@ -35,6 +35,7 @@ func ParseEvent(line string) (Event, error) {
 	}
 	t = t.UTC()
 
+
 	event := Event{
 		Date:          t.Format("2006-01-02"),
 		SourceIP:      parts[sourceIndex],
