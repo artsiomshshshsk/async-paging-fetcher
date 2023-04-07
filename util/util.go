@@ -14,7 +14,7 @@ type Event struct {
 	DestinationIP IPV4
 	Payload       string
 	Date          string
-	Day           int
+	Day 		  int
 }
 
 

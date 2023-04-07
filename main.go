@@ -27,6 +27,13 @@ type Future struct {
 	FetchResult chan FetchResult
 }
 
+type EventKey struct{
+	SourceIP      util.IPV4
+	DestinationIP util.IPV4
+	Payload       string
+	Date          string
+}
+
 
 var PageAfterLastFetchError = errors.New("fetching page after last one")
 
@@ -126,7 +133,7 @@ func AsyncFetch(urlPattern, username, password string, callback func([]byte)) {
 func TotalUnique(urlPattern string, username string, password string) int {
 
 	// set for storing events that happend within one day
-	sameDayEvents := make(map[util.Event]bool)
+	sameDayEvents := make(map[EventKey]bool)
 	// variable to track when day changes, to add totalUnique events and
 	// to release space in the set
 	startingDay := "-"
@@ -141,14 +148,22 @@ func TotalUnique(urlPattern string, username string, password string) int {
 			if err != nil {
 				continue
 			}
+
+			eventKey := EventKey{
+				event.SourceIP,
+				event.DestinationIP,
+				event.Payload,
+				event.Payload,
+			}
+
 			//if current day is equal to previos, we add it to the set
 			if event.Date == startingDay {
-				sameDayEvents[event] = true
+				sameDayEvents[eventKey] = true
 			} else {
 			// new day scenario
 				totalUnique += len(sameDayEvents)
-				sameDayEvents = make(map[util.Event]bool)
-				sameDayEvents[event] = true
+				sameDayEvents = make(map[EventKey]bool)
+				sameDayEvents[eventKey] = true
 				startingDay = event.Date
 			}
 		}
@@ -158,6 +173,8 @@ func TotalUnique(urlPattern string, username string, password string) int {
 	return totalUnique
 
 }
+
+
 
 func main() {
 	startTime := time.Now()
