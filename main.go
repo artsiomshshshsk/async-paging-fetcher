@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxConcurrency = 20
+	maxConcurrency = 50
 )
 
 type FetchResult struct {
@@ -90,7 +90,7 @@ func SpawnFetchers(urlPattern, username, password string, cancel chan struct{}, 
 			close(syncChan)
 			return
 		case concurrencySemaphore <- struct{}{}:
-			{
+			{	
 				url := fmt.Sprintf(urlPattern, pageId)
 				future := make(chan FetchResult)
 				// future is container for not computed value
