@@ -3,7 +3,7 @@
 
 ### The program requires the following variables to be set up in a .env file:
 ```
-URL_PATTERN=https://europe-west1-asoc-interview.cloudfunctions.net/GetNetworkEvents?page=%d
+URL_PATTERN=https://example.nt/someData?page=%d
 USERNAME=
 PASSWORD=
 ```
