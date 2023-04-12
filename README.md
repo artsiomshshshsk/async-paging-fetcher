@@ -1,4 +1,4 @@
-# AlphaSOC Programming Challenge
+# Async Paging Fetcher
 
 
 ### The program requires the following variables to be set up in a .env file:
